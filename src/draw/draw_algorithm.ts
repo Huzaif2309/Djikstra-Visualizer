@@ -11,7 +11,11 @@ import Graph from "@/interfaces/graph";
 
 export const addAlgorithmVisualizer = (
     refs: Refs,
-    graph: Graph
+    graph: Graph,
+    setCurrentVertex?: (v: Vertex | null) => void,
+    onFinish?: () => void,
+    setPQState?: (pq: Vertex[]) => void,
+    setPQHighlight?: (v: Vertex | null) => void
 ) => {
 
     var ctx = refs.canvasRef.current?.getContext("2d");
@@ -49,6 +53,8 @@ export const addAlgorithmVisualizer = (
     function updatePQ(highlight: Vertex | null, isFinished: boolean) {
         if (pauseCount) return;
         updatePQVisualizer(refs.pqRef, graph.pq, visited, highlight, isFinished);
+        if (setPQState) setPQState([...graph.pq.vertices]);
+        if (setPQHighlight) setPQHighlight(highlight);
     }
 
     /* 
@@ -157,49 +163,42 @@ export const addAlgorithmVisualizer = (
     When finished, calls a 'finish' function to draw flash and update other elements
     */
     async function dijkstras() {
-
         // set starting vertex as vertex at front of priority queue
         startVertex = currVertex = graph.pq.front();
-
+        if (setCurrentVertex) setCurrentVertex(currVertex ?? null);
         // traverse through graph while priority queue still has vertices
         while (!graph.pq.empty()) {
             currEdge = null;
             currVertex = graph.pq.front();
-
+            if (setCurrentVertex) setCurrentVertex(currVertex ?? null);
             // checkpoint 1 for current vertex
             var wasPaused = await checkpoint(drawState, updatePQ, null, false);
             if (wasPaused) return;
-
             graph.pq.dequeue();
             if (currVertex) {
                 visited.push(currVertex);
-
                 // checkpoint 2 for current vertex
                 var wasPaused = await checkpoint(() => null, updatePQ, null, false);
                 if (wasPaused) return;
-
                 for (let i = 0; i < currVertex.edges.length; i++) {
                     currEdge = currVertex.edges[i];
-
                     // find vertex on other end of edge
                     var neighbor: Vertex = currEdge.va == currVertex ? currEdge.vb : currEdge.va;
-
                     // if neighbor has not been visited 
                     if (!visited.includes(neighbor)) {
-
+                        if (setCurrentVertex) setCurrentVertex(neighbor);
                         // checkpoint 3 for current vertex
                         var wasPaused = await checkpoint(drawState, updatePQ, neighbor, false);
                         if (wasPaused) return;
-
                         // update neighbors's distance if distance to current vertex PLUS weight
                         // of edge to neighbor is LESS than the neighbor's current distance
                         if (currVertex.dist + currEdge.weight < neighbor.dist) {
                             neighbor.dist = currVertex.dist + currEdge.weight;
+                            neighbor.parent = currVertex; // set parent
                             addUsedEdge(neighbor, currEdge);  
-
                             // update neighbor's position in priority queue
                             graph.pq.heapifyUp(neighbor.idx); 
-
+                            if (setCurrentVertex) setCurrentVertex(neighbor);
                             var wasPaused = await checkpoint(() => null, updatePQ, neighbor, false);
                             if (wasPaused) return;
                         } 
@@ -207,6 +206,7 @@ export const addAlgorithmVisualizer = (
                 }
             }
         }
+        if (setCurrentVertex) setCurrentVertex(null);
         finish();
     }
 
@@ -242,6 +242,7 @@ export const addAlgorithmVisualizer = (
         drawState();
         count--;
         await sleep(200); isSleeping= false; drawState();
+        if (onFinish) onFinish();
     }
 
     
@@ -258,8 +259,10 @@ export const addAlgorithmVisualizer = (
     // Resets the vertices in the graph by setting the distance of each vertex to infinity    
     function resetVertices() {
         var n = graph.vertices.length;
-        for (let i = 0; i < n; i++) 
+        for (let i = 0; i < n; i++) {
             graph.vertices[i].dist = Infinity;
+            graph.vertices[i].parent = null; // reset parent
+        }
     }
 
     

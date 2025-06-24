@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addGraphVisualizer } from "@/draw/draw_graph";
 import { addAlgorithmVisualizer } from "@/draw/draw_algorithm";
 
@@ -10,7 +10,7 @@ import Refs from "@/interfaces/refs";
 import Graph from "@/interfaces/graph";
 import { addSlider } from "@/draw/draw_slider";
 
-export const useDraw = () => {
+export const useDraw = (setIsFinished?: (v: boolean) => void, setVertices?: (v: Vertex[]) => void) => {
 
     const refs: Refs = {
         // canvas and table
@@ -34,6 +34,11 @@ export const useDraw = () => {
         thumbRef: useRef<HTMLDivElement>(null)
     }
 
+    const [currentVertex, setCurrentVertex] = useState<Vertex | null>(null);
+    const [pqState, setPQState] = useState<Vertex[]>([]);
+    const [pqHighlight, setPQHighlight] = useState<Vertex | null>(null);
+    const verticesRef = useRef<Vertex[]>([]); // stable reference for all vertices
+
     useEffect(() => {
         var graph: Graph = {
             vertices: new Array<Vertex>(),
@@ -43,12 +48,19 @@ export const useDraw = () => {
         addGraphVisualizer(refs, graph);
         addSlider(refs);
         refs.startVisRef.current?.addEventListener('click', () => {
-            addAlgorithmVisualizer(refs, graph);
+            // Store the initial vertices in the ref ONCE
+            if (verticesRef.current.length === 0) {
+                verticesRef.current = graph.vertices;
+            }
+            addAlgorithmVisualizer(refs, graph, setCurrentVertex, () => {
+                if (setIsFinished) setIsFinished(true);
+                if (setVertices) setVertices(graph.vertices);
+            }, setPQState, setPQHighlight);
         });
         refs.resetRef.current?.addEventListener('click', () => {
             location.reload();
         });        
     });
 
-    return { refs };
+    return { refs, currentVertex, pqState, pqHighlight, allVertices: verticesRef.current };
 }

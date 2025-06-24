@@ -11,6 +11,7 @@ class Vertex {
     label: string; // vertex label
     edges: Array<Edge>; // all edges that are connected to the vertex
     dist: number; // distance to start vertex
+    parent: Vertex | null; // parent vertex in Dijkstra's algorithm
     isCursorVisible: boolean; // to pulse cursor
     idx: number; // idx in priority queue (allows us to run algorithm in O(V*log(E)) time)
 
@@ -20,6 +21,7 @@ class Vertex {
         this.label = label;
         this.edges = new Array<Edge>();
         this.dist = Infinity; // dijkstras algorithm initializes all distances to infinity
+        this.parent = null; // initialize parent to null
         this.isCursorVisible = isCursorVisible;
         this.idx = -1;
     }
